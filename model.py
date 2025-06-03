@@ -3,13 +3,17 @@ from tensorflow.keras.applications import Xception, ResNet50
 from tensorflow.keras.layers import Dense, GlobalAveragePooling2D, Dropout
 from tensorflow.keras.models import Model
 from tensorflow.keras.optimizers import Adam
+from tensorflow.keras import layers
+from tensorflow.keras.regularizers import l2
 
-def build_deepfake_detector_resnet50(input_shape=(128, 128, 3), learning_rate=0.0001):
+def build_deepfake_detector_resnet50(input_shape=(256, 256, 3), learning_rate=0.0001):
 
     base_model = ResNet50(weights='imagenet', include_top=False, input_shape=input_shape)
 
-    for layer in base_model.layers:
+    for layer in base_model.layers[:-20]:
         layer.trainable = False
+    for layer in base_model.layers[-20:]:
+        layer.trainable = True
 
     x = base_model.output
 
@@ -30,19 +34,21 @@ def build_deepfake_detector_resnet50(input_shape=(128, 128, 3), learning_rate=0.
 
     return model
 
-def build_deepfake_detector_xception(input_shape=(128, 128, 3), learning_rate=0.0001):
+def build_deepfake_detector_xception(input_shape=(256, 256, 3), learning_rate=0.0001):
     base_model = Xception(weights='imagenet', include_top=False, input_shape=input_shape)
 
-    for layer in base_model.layers:
-        layer.trainable = False
+    # for layer in base_model.layers[:-20]:
+    #     layer.trainable = False
+    # for layer in base_model.layers[-20:]:
+    #     layer.trainable = True
 
     x = base_model.output
 
     x = GlobalAveragePooling2D(name='global_avg_pool')(x)
 
-    x = Dense(256, activation='relu', name='fc1_relu')(x)
+    x = Dense(512, activation='relu', kernel_regularizer=l2(0.001), name='fc1_relu')(x)
 
-    x = Dropout(0.5, name='dropout_1')(x) 
+    x = Dropout(0.3, name='dropout_1')(x) 
 
     predictions = Dense(1, activation='sigmoid', name='output_sigmoid')(x)
 
@@ -56,9 +62,9 @@ def build_deepfake_detector_xception(input_shape=(128, 128, 3), learning_rate=0.
     return model
 
 if __name__ == '__main__':
-    DATA_DIR = "data_pre"
-    IMG_HEIGHT = 128
-    IMG_WIDTH = 128
+    DATA_DIR = "data"
+    IMG_HEIGHT = 256
+    IMG_WIDTH = 256
     CHANNELS = 3
     BATCH_SIZE = 32
     EPOCHS = 10
@@ -79,7 +85,7 @@ if __name__ == '__main__':
         label_mode="binary",
         image_size=(IMG_HEIGHT, IMG_WIDTH),
         batch_size=BATCH_SIZE,
-        shuffle=False
+        shuffle=True
     )
     choice = input("Choose model (1 for Xception, 2 for ResNet50): ")
     if choice =='1':
